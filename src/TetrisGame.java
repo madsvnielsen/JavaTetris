@@ -1,7 +1,4 @@
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
@@ -13,7 +10,9 @@ public class TetrisGame  extends JPanel implements ActionListener {
 
         private final int B_WIDTH = 500;
         private final int B_HEIGHT = 600;
-        private final int DELAY = 350;
+
+    private final int START_DELAY = 1000;
+        private int DELAY = START_DELAY;
         private Timer timer;
 
         private Color BackgroundGridColor = Color.getHSBColor(0.78f, 1f, 0.03f);
@@ -31,6 +30,18 @@ public class TetrisGame  extends JPanel implements ActionListener {
         private BlockCollection ghostBlock;
 
         private BlockCollection[] staticBlocks;
+
+        private int GameScore = 0;
+        private int LinesSent = 0;
+
+        private int TimeInterval = 0;
+        private final int SpeedUpInterval = 10000;
+    private final int SpeedUpIncrement = 100;
+
+        private boolean GamePlaying = false;
+        private boolean GameOver = false;
+
+
 
         private int bottomPosition = B_HEIGHT/BlockSize;
 
@@ -51,12 +62,42 @@ public class TetrisGame  extends JPanel implements ActionListener {
 
             timer = new Timer(DELAY, this);
             timer.start();
-            SpawnBlock();
+
+
+
 
         }
 
         private void SpawnBlock()
         {
+            if(staticBlocks != null)
+            {
+                for(int i = 0; i < staticBlocks.length; i++)
+                {
+                    for(int n = 0; n < staticBlocks[i].blocks.length; n++)
+                    {
+                        int staticX = staticBlocks[i].blocks[n].x * BlockSize + staticBlocks[i].x;
+                        int staticY = staticBlocks[i].blocks[n].y * BlockSize + staticBlocks[i].y;
+                        for(int x = 0; x < B_WIDTH/BlockSize; x++ )
+                        {
+                            for(int y = -2; y < 3; y++ )
+                            {
+                                int globalX = x * BlockSize;
+                                int globalY = spawnPosition + y * BlockSize;
+                                if(staticX == globalX && staticY == globalY)
+                                {
+                                    GameOver = true;
+                                    GamePlaying = false;
+                                }
+
+                            }
+
+                        }
+
+                    }
+                }
+            }
+
             int lastId = -1;
             if(staticBlocks != null)
             {
@@ -84,15 +125,53 @@ public class TetrisGame  extends JPanel implements ActionListener {
         private void doDrawing(Graphics g) {
 
             DrawBackGrid(g);
+            if(!GameOver)
+            {
+                DrawGhostBlock(g);
+            }
             DrawActiveBlock(g);
             DrawStaticBlocks(g);
-            DrawGhostBlock(g);
+            if(GamePlaying)
+            {
+                g.setColor(Color.white);
+                g.setFont(g.getFont().deriveFont(15f));
+                g.drawString("Score:" + GameScore, 10,20);
+                g.drawString("Lines Sent:" + LinesSent, 10,40);
+
+            }
+            DrawPauseScreens(g);
 
 
             Toolkit.getDefaultToolkit().sync();
 
 
         }
+
+    private void DrawPauseScreens(Graphics g) {
+        if(!GamePlaying)
+        {
+            if(!GameOver)
+            {
+                g.setColor(Color.white);
+                g.setFont(g.getFont().deriveFont(35f));
+                g.drawString("Welcome to Tetris!", B_WIDTH/2 - (150),100);
+                g.setFont(g.getFont().deriveFont(20f));
+                g.drawString("Press 'enter' to start playing", B_WIDTH/2 - (125),200);
+            } else
+            {
+                g.setColor(Color.red);
+                g.setFont(g.getFont().deriveFont(35f));
+                g.drawString("Game over!", B_WIDTH/2 - (100),100);
+                g.setColor(Color.white);
+                g.setFont(g.getFont().deriveFont(25f));
+                g.drawString("Score: " + GameScore, B_WIDTH/2 - (50),150);
+                g.setFont(g.getFont().deriveFont(20f));
+                g.setColor(Color.white);
+                g.drawString("Press 'enter' to restart!", B_WIDTH/2 - (110),200);
+
+            }
+        }
+    }
 
     private void DrawGhostBlock(Graphics g) {
         if(ghostBlock != null)
@@ -124,13 +203,18 @@ public class TetrisGame  extends JPanel implements ActionListener {
     }
 
     private void DrawActiveBlock(Graphics g) {
-        Color c = activeBlock.color;
-        g.setColor(c);
-        for(int i = 0; i < activeBlock.blocks.length; i++)
+        if(activeBlock != null)
         {
-            g.fillRect(activeBlock.x + activeBlock.blocks[i].x * BlockSize + GridLineSize,
-                    activeBlock.y + activeBlock.blocks[i].y * BlockSize + GridLineSize, BlockSize-2*GridLineSize, BlockSize-2*GridLineSize);
+            Color c = activeBlock.color;
+            g.setColor(c);
+            for(int i = 0; i < activeBlock.blocks.length; i++)
+            {
+                g.fillRect(activeBlock.x + activeBlock.blocks[i].x * BlockSize + GridLineSize,
+                        activeBlock.y + activeBlock.blocks[i].y * BlockSize + GridLineSize, BlockSize-2*GridLineSize, BlockSize-2*GridLineSize);
+            }
+
         }
+
     }
 
     private void DrawBackGrid(Graphics g) {
@@ -147,6 +231,17 @@ public class TetrisGame  extends JPanel implements ActionListener {
 
     private void SendLines(int[] yLines)
     {
+        LinesSent += yLines.length;
+        int ScoreAdd = 0;
+
+        for(int i = 0; i < yLines.length; i++)
+        {
+            ScoreAdd += 100 * (i+1);
+        }
+        GameScore += ScoreAdd;
+
+
+
         if(staticBlocks != null)
         {
             for(int y = 0; y < yLines.length; y++)
@@ -155,7 +250,6 @@ public class TetrisGame  extends JPanel implements ActionListener {
                 for(int i = 0; i < staticBlocks.length; i++)
                 {
                     int[] BlocksToRemove = new int[0];
-                    boolean fallingDown = false;
 
                     for(int n = 0; n < staticBlocks[i].blocks.length; n++)
                     {
@@ -483,10 +577,21 @@ public class TetrisGame  extends JPanel implements ActionListener {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            MoveBlocks();
+        if(GamePlaying)
+        {
+            TimeInterval += DELAY;
+            if(TimeInterval > SpeedUpInterval)
+            {
+                TimeInterval = 0;
+                DELAY -= SpeedUpIncrement;
+                timer.setDelay(DELAY);
+            }
             CheckStacking();
+            MoveBlocks();
             CalculateGhost();
             repaint();
+        }
+
         }
 
         private class TAdapter extends KeyAdapter {
@@ -495,68 +600,103 @@ public class TetrisGame  extends JPanel implements ActionListener {
             public void keyPressed(KeyEvent e) {
 
                 int key = e.getKeyCode();
-
-                if ((key == KeyEvent.VK_LEFT)) {
-                    int mostLeft = 0;
-                    for(int i = 0; i < activeBlock.blocks.length; i++)
-                    {
-                        if(activeBlock.blocks[i].x < mostLeft)
-                        {
-                            mostLeft = activeBlock.blocks[i].x;
-                        }
-                    }
-                    if((mostLeft * BlockSize + activeBlock.x)/BlockSize > 0)
-                    {
-                        activeBlock.x -= BlockSize;
-
-                    }
-
-
-                }
-                if ((key == KeyEvent.VK_RIGHT)) {
-                    int mostRight = 0;
-                    for(int i = 0; i < activeBlock.blocks.length; i++)
-                    {
-                        if(activeBlock.blocks[i].x > mostRight)
-                        {
-                            mostRight = activeBlock.blocks[i].x;
-                        }
-                    }
-                    if((mostRight * BlockSize + activeBlock.x)/BlockSize < (B_WIDTH/BlockSize)-1)
-                    {
-                        activeBlock.x += BlockSize;
-
-                    }
-
-                }
-                if ((key == KeyEvent.VK_UP)) {
-                    RotateBlocks();
-
-                }
-                if(key == KeyEvent.VK_SPACE)
+                if(GamePlaying)
                 {
-                    BlockCollection currentBlocks = activeBlock;
-                    while(currentBlocks == activeBlock)
-                    {
+                    if ((key == KeyEvent.VK_LEFT)) {
+                        int mostLeft = 0;
+                        for(int i = 0; i < activeBlock.blocks.length; i++)
+                        {
+                            if(activeBlock.blocks[i].x < mostLeft)
+                            {
+                                mostLeft = activeBlock.blocks[i].x;
+                            }
+                        }
+                        if((mostLeft * BlockSize + activeBlock.x)/BlockSize > 0)
+                        {
+                            activeBlock.x -= BlockSize;
 
+                        }
+
+
+                    }
+                    if ((key == KeyEvent.VK_RIGHT)) {
+                        int mostRight = 0;
+                        for(int i = 0; i < activeBlock.blocks.length; i++)
+                        {
+                            if(activeBlock.blocks[i].x > mostRight)
+                            {
+                                mostRight = activeBlock.blocks[i].x;
+                            }
+                        }
+                        if((mostRight * BlockSize + activeBlock.x)/BlockSize < (B_WIDTH/BlockSize)-1)
+                        {
+                            activeBlock.x += BlockSize;
+
+                        }
+
+                    }
+                    if ((key == KeyEvent.VK_UP)) {
+                        RotateBlocks();
+
+                    }
+                    if(key == KeyEvent.VK_SPACE)
+                    {
+                        BlockCollection currentBlocks = activeBlock;
+                        while(currentBlocks == activeBlock)
+                        {
+
+                            CheckStacking();
+                            MoveBlocks();
+                        }
+
+
+
+                    }
+                    if(key == KeyEvent.VK_DOWN)
+                    {
+                        activeBlock.y += BlockSize;
                         CheckStacking();
-                        MoveBlocks();
+                        repaint();
+
+
+
                     }
-
-
-
-                }
-                if(key == KeyEvent.VK_DOWN)
-                {
-                    activeBlock.y += BlockSize;
-                    CheckStacking();
+                    CalculateGhost();
                     repaint();
 
+                }
+                if(key == KeyEvent.VK_ENTER && !GamePlaying)
+                {
+                    if(GameOver)
+                    {
+                        activeBlock = null;
+                        staticBlocks = null;
+                        ghostBlock = null;
+
+                    }
+                    GameOver = false;
+                    GamePlaying = true;
+                    GameScore = 0;
+                    LinesSent = 0;
+                    DELAY = START_DELAY;
+                    if(activeBlock == null)
+                    {
+                        SpawnBlock();
+
+                    }
+
+
 
 
                 }
-                CalculateGhost();
-                repaint();
+                if(key == KeyEvent.VK_P && GamePlaying)
+                {
+                    GamePlaying = false;
+
+
+
+                }
+
 
 
             }
